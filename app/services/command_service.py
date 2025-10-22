@@ -9,6 +9,11 @@ import re
 from app.services import EventService, AIService
 from app.services.youtube_service import YouTubeService
 from app.services.notification_service import NotificationService
+from app.services.pdf_service import PDFService
+from app.services.tts_service import TTSService
+from app.services.image_service import ImageService
+from app.services.crypto_service import CryptoService
+from app.services.stock_service import StockService
 from app.models.event import EventCreate
 from app.utils import LoggerMixin, ValidationError
 
@@ -26,7 +31,12 @@ class CommandService(LoggerMixin):
         event_service: EventService,
         youtube_service: YouTubeService,
         ai_service: AIService,
-        notification_service: Optional[NotificationService] = None
+        notification_service: Optional[NotificationService] = None,
+        pdf_service: Optional[PDFService] = None,
+        tts_service: Optional[TTSService] = None,
+        image_service: Optional[ImageService] = None,
+        crypto_service: Optional[CryptoService] = None,
+        stock_service: Optional[StockService] = None
     ):
         """
         Initialize Command Service
@@ -36,11 +46,21 @@ class CommandService(LoggerMixin):
             youtube_service: YouTube service instance
             ai_service: AI service instance
             notification_service: Notification service instance (optional)
+            pdf_service: PDF service instance (optional)
+            tts_service: TTS service instance (optional)
+            image_service: Image generation service instance (optional)
+            crypto_service: Cryptocurrency service instance (optional)
+            stock_service: Stock service instance (optional)
         """
         self.event_service = event_service
         self.youtube_service = youtube_service
         self.ai_service = ai_service
         self.notification_service = notification_service
+        self.pdf_service = pdf_service
+        self.tts_service = tts_service
+        self.image_service = image_service
+        self.crypto_service = crypto_service
+        self.stock_service = stock_service
 
     async def process_command(self, chat) -> Optional[str]:
         """
@@ -128,6 +148,59 @@ class CommandService(LoggerMixin):
                 # 통계
                 case "일정통계" | "!stats":
                     return await self._handle_event_stats(room_id)
+
+                # 이미지 생성
+                case "!gi" | "!이미지생성":
+                    if param and self.image_service:
+                        return await self._handle_image_generation(chat, param)
+                    return "💡 사용법: !gi 고양이 그림"
+
+                # 이미지 분석
+                case "!분석":
+                    if self.image_service:
+                        return await self._handle_image_analysis(chat)
+                    return "❌ 이미지 분석 서비스를 사용할 수 없습니다."
+
+                # 코인 정보
+                case "!코인":
+                    if self.crypto_service:
+                        if param:
+                            return await self._handle_coin_price(param, str(sender_id))
+                        else:
+                            return "💡 사용법: !코인 BTC 또는 !코인 (전체 시세)"
+                    return "❌ 암호화폐 서비스를 사용할 수 없습니다."
+
+                case "!내코인":
+                    if self.crypto_service:
+                        return await self._handle_my_coins(str(sender_id))
+                    return "❌ 암호화폐 서비스를 사용할 수 없습니다."
+
+                case "!김프":
+                    if self.crypto_service:
+                        return await self._handle_kimchi_premium()
+                    return "❌ 암호화폐 서비스를 사용할 수 없습니다."
+
+                case "!코인등록":
+                    if self.crypto_service and param:
+                        return await self._handle_coin_add(str(sender_id), param)
+                    return "💡 사용법: !코인등록 BTC 1.5 50000000"
+
+                case "!코인삭제":
+                    if self.crypto_service and param:
+                        return await self._handle_coin_remove(str(sender_id), param)
+                    return "💡 사용법: !코인삭제 BTC"
+
+                # 주식 차트
+                case "!주식":
+                    if self.stock_service and param:
+                        return await self._handle_stock_chart(chat, param)
+                    return "💡 사용법: !주식 삼성전자"
+
+                # TTS
+                case "!tts":
+                    if self.tts_service and param:
+                        return await self._handle_tts(chat, param)
+                    return "💡 사용법: !tts 안녕하세요"
 
                 # 기본 응답 없음 (일반 대화는 처리하지 않음)
                 case _:
@@ -710,3 +783,115 @@ class CommandService(LoggerMixin):
             return datetime.strptime(time_str, "%H:%M").time()
         except ValueError:
             raise ValidationError(f"잘못된 시간 형식입니다: {time_str}. HH:MM 형식을 사용하세요.")
+
+    async def _handle_image_generation(self, chat, prompt: str) -> Optional[str]:
+        """이미지 생성 처리"""
+        try:
+            image_bytes, error_msg = await self.image_service.generate_image(prompt)
+
+            if image_bytes:
+                # 이미지 전송
+                chat.reply_media([image_bytes])
+                return None  # reply_media로 이미 전송했으므로 None 반환
+            else:
+                return f"❌ {error_msg}"
+
+        except Exception as e:
+            self.logger.error("image_generation_failed", error=str(e))
+            return f"❌ 이미지 생성 실패: {str(e)}"
+
+    async def _handle_image_analysis(self, chat) -> str:
+        """이미지 분석 처리 (답장 메시지의 이미지)"""
+        try:
+            if not hasattr(chat.message, 'source_id') or not chat.message.source_id:
+                return "❌ 이미지가 포함된 메시지에 답장으로 사용해주세요."
+
+            source = chat.get_source()
+
+            if not hasattr(source, 'image') or not source.image:
+                return "❌ 답장한 메시지에 이미지가 없습니다."
+
+            photo_url = source.image.url[0]
+            result = await self.image_service.analyze_image(photo_url)
+
+            return f"📊 이미지 분석 결과:\n\n{result}"
+
+        except Exception as e:
+            self.logger.error("image_analysis_failed", error=str(e))
+            return f"❌ 이미지 분석 실패: {str(e)}"
+
+    async def _handle_coin_price(self, symbol: str, user_id: str) -> str:
+        """코인 가격 조회"""
+        try:
+            return await self.crypto_service.get_coin_price(symbol, user_id)
+        except Exception as e:
+            return f"❌ 코인 조회 실패: {str(e)}"
+
+    async def _handle_my_coins(self, user_id: str) -> str:
+        """내 코인 조회"""
+        try:
+            return await self.crypto_service.get_my_coins(user_id)
+        except Exception as e:
+            return f"❌ 내 코인 조회 실패: {str(e)}"
+
+    async def _handle_kimchi_premium(self) -> str:
+        """김치 프리미엄 조회"""
+        try:
+            return await self.crypto_service.get_kimchi_premium()
+        except Exception as e:
+            return f"❌ 김치 프리미엄 조회 실패: {str(e)}"
+
+    async def _handle_coin_add(self, user_id: str, param: str) -> str:
+        """코인 등록"""
+        try:
+            parts = param.split()
+            if len(parts) != 3:
+                return "❌ 형식: !코인등록 코인심볼 보유수량 평균단가\n예: !코인등록 BTC 1.5 50000000"
+
+            symbol = parts[0]
+            amount = float(parts[1].replace(',', ''))
+            average = float(parts[2].replace(',', ''))
+
+            return await self.crypto_service.add_coin(user_id, symbol, amount, average)
+
+        except ValueError:
+            return "❌ 숫자 형식이 올바르지 않습니다."
+        except Exception as e:
+            return f"❌ 코인 등록 실패: {str(e)}"
+
+    async def _handle_coin_remove(self, user_id: str, symbol: str) -> str:
+        """코인 삭제"""
+        try:
+            return await self.crypto_service.remove_coin(user_id, symbol)
+        except Exception as e:
+            return f"❌ 코인 삭제 실패: {str(e)}"
+
+    async def _handle_stock_chart(self, chat, query: str) -> Optional[str]:
+        """주식 차트 생성"""
+        try:
+            image_bytes = await self.stock_service.create_stock_chart(query)
+
+            if image_bytes:
+                chat.reply_media([image_bytes])
+                return None
+            else:
+                return "❌ 주식 차트를 생성할 수 없습니다."
+
+        except Exception as e:
+            return f"❌ 주식 차트 생성 실패: {str(e)}"
+
+    async def _handle_tts(self, chat, text: str) -> Optional[str]:
+        """TTS 음성 생성"""
+        try:
+            # 옵션 파싱
+            clean_text, voice_name, language_code = self.tts_service.parse_tts_options(text)
+
+            # TTS 생성
+            filepath = await self.tts_service.generate_tts(clean_text, voice_name, language_code)
+
+            # 음성 파일 전송 (iris의 reply_audio 사용 필요)
+            # 현재는 파일 경로만 반환
+            return f"🔊 음성이 생성되었습니다: {filepath}\n(음성 파일 전송 기능은 추후 구현 예정)"
+
+        except Exception as e:
+            return f"❌ TTS 생성 실패: {str(e)}"

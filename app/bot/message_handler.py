@@ -13,6 +13,11 @@ from app.services import EventService, AIService
 from app.services.command_service import CommandService
 from app.services.youtube_service import YouTubeService
 from app.services.notification_service import NotificationService
+from app.services.pdf_service import PDFService
+from app.services.tts_service import TTSService
+from app.services.image_service import ImageService
+from app.services.crypto_service import CryptoService
+from app.services.stock_service import StockService
 from app.repositories import EventRepository
 from app.utils import db_manager
 
@@ -44,6 +49,11 @@ class KakaoBotHandler(LoggerMixin):
         self.youtube_service: Optional[YouTubeService] = None
         self.ai_service: Optional[AIService] = None
         self.notification_service: Optional[NotificationService] = None
+        self.pdf_service: Optional[PDFService] = None
+        self.tts_service: Optional[TTSService] = None
+        self.image_service: Optional[ImageService] = None
+        self.crypto_service: Optional[CryptoService] = None
+        self.stock_service: Optional[StockService] = None
 
         # 공유 이벤트 루프 설정 (핸들러 등록 전에 먼저 실행)
         self._setup_event_loop()
@@ -144,12 +154,24 @@ class KakaoBotHandler(LoggerMixin):
                 event_service=self.event_service
             )
 
-            # CommandService 초기화 (NotificationService 포함)
+            # 새로운 서비스들 초기화
+            self.pdf_service = PDFService()
+            self.tts_service = TTSService()
+            self.image_service = ImageService()
+            self.crypto_service = CryptoService()
+            self.stock_service = StockService()
+
+            # CommandService 초기화 (모든 서비스 포함)
             self.command_service = CommandService(
                 event_service=self.event_service,
                 youtube_service=self.youtube_service,
                 ai_service=self.ai_service,
-                notification_service=self.notification_service
+                notification_service=self.notification_service,
+                pdf_service=self.pdf_service,
+                tts_service=self.tts_service,
+                image_service=self.image_service,
+                crypto_service=self.crypto_service,
+                stock_service=self.stock_service
             )
 
             self.logger.info("bot_services_initialized")

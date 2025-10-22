@@ -148,3 +148,9 @@ xkit==0.0.0
 youtube-transcript-api==1.1.0
 yt-dlp==2025.6.9
 zope.interface==6.1
+
+# 추가 의존성 (corinibot 기능 통합)
+numpy==1.26.4
+anthropic==0.40.0
+openai==1.59.8
+aiomysql==0.2.0
