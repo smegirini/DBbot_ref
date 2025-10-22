@@ -957,7 +957,7 @@ class CommandService(LoggerMixin):
             return f"❌ 주식 차트 생성 실패: {str(e)}"
 
     async def _handle_tts(self, chat, text: str) -> Optional[str]:
-        """TTS 음성 생성"""
+        """TTS 음성 생성 및 전송"""
         try:
             # 옵션 파싱
             clean_text, voice_name, language_code = self.tts_service.parse_tts_options(text)
@@ -965,11 +965,23 @@ class CommandService(LoggerMixin):
             # TTS 생성
             filepath = await self.tts_service.generate_tts(clean_text, voice_name, language_code)
 
-            # 음성 파일 전송 (iris의 reply_audio 사용 필요)
-            # 현재는 파일 경로만 반환
-            return f"🔊 음성이 생성되었습니다: {filepath}\n(음성 파일 전송 기능은 추후 구현 예정)"
+            # 음성 파일 전송
+            try:
+                # 파일을 열어서 reply_media로 전송
+                with open(filepath, 'rb') as audio_file:
+                    audio_bytes = audio_file.read()
+                    chat.reply_media([audio_bytes])
+
+                self.logger.info("tts_sent", filepath=filepath, length=len(audio_bytes))
+                return None  # reply_media로 전송했으므로 None 반환
+
+            except Exception as send_error:
+                self.logger.error("tts_send_failed", error=str(send_error))
+                # 전송 실패 시 파일 경로 반환
+                return f"🔊 음성 생성 완료: {filepath}\n⚠️ 전송 실패: {str(send_error)}"
 
         except Exception as e:
+            self.logger.error("tts_generation_failed", error=str(e))
             return f"❌ TTS 생성 실패: {str(e)}"
 
     async def _handle_rag_query(self, query: str) -> str:
