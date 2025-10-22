@@ -49,24 +49,20 @@ class MultiLLMService(LoggerMixin):
         self._groq_client: Optional[groq.Client] = None
 
         # Cerebras 초기화
-        if CEREBRAS_AVAILABLE:
-            cerebras_key = os.getenv("CEREBRAS_API_KEY")
-            if cerebras_key:
-                try:
-                    self._cerebras_client = Cerebras(api_key=cerebras_key)
-                    self.logger.info("cerebras_initialized")
-                except Exception as e:
-                    self.logger.error("cerebras_init_failed", error=str(e))
+        if CEREBRAS_AVAILABLE and settings.cerebras.is_configured:
+            try:
+                self._cerebras_client = Cerebras(api_key=settings.cerebras.api_key)
+                self.logger.info("cerebras_initialized")
+            except Exception as e:
+                self.logger.error("cerebras_init_failed", error=str(e))
 
         # Groq 초기화
-        if GROQ_AVAILABLE:
-            groq_key = os.getenv("GROQ_API_KEY")
-            if groq_key:
-                try:
-                    self._groq_client = groq.Client(api_key=groq_key)
-                    self.logger.info("groq_initialized")
-                except Exception as e:
-                    self.logger.error("groq_init_failed", error=str(e))
+        if GROQ_AVAILABLE and settings.groq.is_configured:
+            try:
+                self._groq_client = groq.Client(api_key=settings.groq.api_key)
+                self.logger.info("groq_initialized")
+            except Exception as e:
+                self.logger.error("groq_init_failed", error=str(e))
 
         self.logger.info(
             "multi_llm_service_initialized",

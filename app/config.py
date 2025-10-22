@@ -103,6 +103,42 @@ class AnthropicSettings(BaseSettings):
         return bool(self.api_key)
 
 
+class CerebrasSettings(BaseSettings):
+    """Cerebras 설정 (ragbot integration)"""
+    model_config = SettingsConfigDict(
+        env_file='.env',
+        env_file_encoding='utf-8',
+        env_prefix='CEREBRAS_',
+        extra='ignore'
+    )
+
+    api_key: Optional[str] = Field(default=None, description='Cerebras API key')
+    model: str = Field(default='qwen-3-235b-a22b-thinking-2507', description='Model name')
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if Cerebras is configured"""
+        return bool(self.api_key)
+
+
+class GroqSettings(BaseSettings):
+    """Groq 설정 (ragbot integration)"""
+    model_config = SettingsConfigDict(
+        env_file='.env',
+        env_file_encoding='utf-8',
+        env_prefix='GROQ_',
+        extra='ignore'
+    )
+
+    api_key: Optional[str] = Field(default=None, description='Groq API key')
+    model: str = Field(default='llama-3.3-70b-versatile', description='Model name')
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if Groq is configured"""
+        return bool(self.api_key)
+
+
 class GoogleServicesSettings(BaseSettings):
     """Google Services 설정"""
     model_config = SettingsConfigDict(
@@ -304,6 +340,8 @@ class Settings(BaseSettings):
     azure_openai: AzureOpenAISettings = Field(default_factory=AzureOpenAISettings)
     gemini: GeminiSettings = Field(default_factory=GeminiSettings)
     anthropic: AnthropicSettings = Field(default_factory=AnthropicSettings)
+    cerebras: CerebrasSettings = Field(default_factory=CerebrasSettings)
+    groq: GroqSettings = Field(default_factory=GroqSettings)
     google_services: GoogleServicesSettings = Field(default_factory=GoogleServicesSettings)
     kakao: KakaoSettings = Field(default_factory=KakaoSettings)
     circuit_breaker: CircuitBreakerSettings = Field(default_factory=CircuitBreakerSettings)
