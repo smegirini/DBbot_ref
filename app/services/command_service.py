@@ -962,7 +962,8 @@ class CommandService(LoggerMixin):
         """고급 암호화폐 분석 (기술 지표)"""
         try:
             self.logger.info("crypto_analysis_request", coin_id=coin_id)
-            report = await self.crypto_advanced_service.get_advanced_analysis(coin_id.lower())
+            # 서비스 내부에서 정규화하므로 그대로 전달
+            report = await self.crypto_advanced_service.get_advanced_analysis(coin_id)
             return report
 
         except Exception as e:

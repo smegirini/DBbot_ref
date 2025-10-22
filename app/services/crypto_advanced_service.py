@@ -16,6 +16,30 @@ class CryptoAdvancedService(LoggerMixin):
 
     BASE_URL = "https://api.coingecko.com/api/v3"
 
+    # 심볼 -> CoinGecko ID 매핑
+    SYMBOL_TO_ID = {
+        "btc": "bitcoin",
+        "eth": "ethereum",
+        "usdt": "tether",
+        "bnb": "binancecoin",
+        "sol": "solana",
+        "xrp": "ripple",
+        "usdc": "usd-coin",
+        "ada": "cardano",
+        "avax": "avalanche-2",
+        "doge": "dogecoin",
+        "trx": "tron",
+        "dot": "polkadot",
+        "matic": "matic-network",
+        "link": "chainlink",
+        "ltc": "litecoin",
+        "atom": "cosmos",
+        "uni": "uniswap",
+        "etc": "ethereum-classic",
+        "xlm": "stellar",
+        "bch": "bitcoin-cash",
+    }
+
     def __init__(self):
         """Initialize advanced crypto service"""
         self.session = requests.Session()
@@ -28,6 +52,25 @@ class CryptoAdvancedService(LoggerMixin):
         self._cache_ttl = 300  # 5분
 
         self.logger.info("crypto_advanced_service_initialized")
+
+    def _normalize_coin_id(self, coin_input: str) -> str:
+        """
+        코인 심볼/ID 정규화
+
+        Args:
+            coin_input: 사용자 입력 (BTC, bitcoin 등)
+
+        Returns:
+            CoinGecko 코인 ID
+        """
+        coin_lower = coin_input.lower().strip()
+
+        # 심볼 매핑 확인
+        if coin_lower in self.SYMBOL_TO_ID:
+            return self.SYMBOL_TO_ID[coin_lower]
+
+        # 이미 ID 형식이면 그대로 반환
+        return coin_lower
 
     def _cache_key(self, prefix: str, coin_id: str) -> str:
         """캐시 키 생성"""
@@ -263,27 +306,29 @@ class CryptoAdvancedService(LoggerMixin):
         except Exception:
             return None
 
-    async def get_advanced_analysis(self, coin_id: str) -> str:
+    async def get_advanced_analysis(self, coin_input: str) -> str:
         """
         고급 분석 리포트 생성
 
         Args:
-            coin_id: CoinGecko 코인 ID
+            coin_input: 코인 심볼 또는 ID (BTC, bitcoin 등)
 
         Returns:
             분석 리포트 (텍스트)
         """
         try:
-            self.logger.info("advanced_analysis_request", coin_id=coin_id)
+            # 코인 ID 정규화
+            coin_id = self._normalize_coin_id(coin_input)
+            self.logger.info("advanced_analysis_request", input=coin_input, normalized=coin_id)
 
             # 기술 지표 계산
             indicators = await self.calculate_technical_indicators(coin_id)
 
             if not indicators:
-                return f"❌ {coin_id}에 대한 충분한 데이터가 없습니다."
+                return f"❌ {coin_input.upper()}에 대한 충분한 데이터가 없습니다."
 
             # 리포트 생성
-            lines = [f"📊 {coin_id.upper()} 고급 기술 분석\n"]
+            lines = [f"📊 {coin_input.upper()} 고급 기술 분석\n"]
 
             # RSI
             if "rsi" in indicators:
