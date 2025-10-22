@@ -4,6 +4,7 @@ AI API 통합 및 폴백 처리
 """
 from typing import Optional, Dict, Any
 from enum import Enum
+import re
 import httpx
 from openai import AsyncAzureOpenAI
 import google.generativeai as genai
@@ -23,6 +24,52 @@ class AIProvider(str, Enum):
     AZURE_OPENAI = "azure_openai"
     GEMINI = "gemini"
     CLAUDE = "claude"
+
+
+def remove_markdown(text: str) -> str:
+    """
+    마크다운 문법을 제거하고 플레인 텍스트로 변환
+    카카오톡은 마크다운을 지원하지 않으므로 제거 필요
+
+    Args:
+        text: 마크다운이 포함된 텍스트
+
+    Returns:
+        str: 플레인 텍스트
+    """
+    # 코드 블록 제거 (```로 감싸진 부분)
+    text = re.sub(r'```[\s\S]*?```', '', text)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+
+    # 헤더 제거 (# ## ### 등)
+    text = re.sub(r'^#+\s+', '', text, flags=re.MULTILINE)
+
+    # 볼드/이탤릭 제거 (**text**, *text*, __text__, _text_)
+    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+    text = re.sub(r'\*([^*]+)\*', r'\1', text)
+    text = re.sub(r'__([^_]+)__', r'\1', text)
+    text = re.sub(r'_([^_]+)_', r'\1', text)
+
+    # 링크 제거 [text](url) -> text
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+
+    # 이미지 제거 ![alt](url) -> alt
+    text = re.sub(r'!\[([^\]]*)\]\([^\)]+\)', r'\1', text)
+
+    # 리스트 마커 제거 (-, *, +, 숫자.)
+    text = re.sub(r'^\s*[-*+]\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)
+
+    # 인용문 제거 (>)
+    text = re.sub(r'^\s*>\s+', '', text, flags=re.MULTILINE)
+
+    # 수평선 제거 (---, ***, ___)
+    text = re.sub(r'^[-*_]{3,}\s*$', '', text, flags=re.MULTILINE)
+
+    # 연속된 빈 줄을 하나로 합치기
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    return text.strip()
 
 
 class AIService(LoggerMixin):
@@ -180,7 +227,8 @@ class AIService(LoggerMixin):
 
             result = response.choices[0].message.content
             self.logger.info("azure_generation_success", prompt_length=len(prompt))
-            return result
+            # 마크다운 제거 (카카오톡 호환성)
+            return remove_markdown(result)
 
         except Exception as e:
             self.logger.error("azure_generation_failed", error=str(e))
@@ -216,7 +264,8 @@ class AIService(LoggerMixin):
                 result = await loop.run_in_executor(executor, _sync_generate)
 
             self.logger.info("gemini_generation_success", prompt_length=len(prompt))
-            return result
+            # 마크다운 제거 (카카오톡 호환성)
+            return remove_markdown(result)
 
         except Exception as e:
             self.logger.error("gemini_generation_failed", error=str(e))
@@ -238,7 +287,8 @@ class AIService(LoggerMixin):
 
             result = response.content[0].text
             self.logger.info("claude_generation_success", prompt_length=len(prompt))
-            return result
+            # 마크다운 제거 (카카오톡 호환성)
+            return remove_markdown(result)
 
         except Exception as e:
             self.logger.error("claude_generation_failed", error=str(e))
