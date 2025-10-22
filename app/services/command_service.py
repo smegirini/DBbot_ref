@@ -14,6 +14,10 @@ from app.services.tts_service import TTSService
 from app.services.image_service import ImageService
 from app.services.crypto_service import CryptoService
 from app.services.stock_service import StockService
+from app.services.rag_service import RAGService
+from app.services.multi_llm_service import MultiLLMService
+from app.services.crypto_advanced_service import CryptoAdvancedService
+from app.services.playwright_crawler_service import PlaywrightCrawlerService
 from app.models.event import EventCreate
 from app.utils import LoggerMixin, ValidationError
 
@@ -36,7 +40,11 @@ class CommandService(LoggerMixin):
         tts_service: Optional[TTSService] = None,
         image_service: Optional[ImageService] = None,
         crypto_service: Optional[CryptoService] = None,
-        stock_service: Optional[StockService] = None
+        stock_service: Optional[StockService] = None,
+        rag_service: Optional[RAGService] = None,
+        multi_llm_service: Optional[MultiLLMService] = None,
+        crypto_advanced_service: Optional[CryptoAdvancedService] = None,
+        playwright_service: Optional[PlaywrightCrawlerService] = None
     ):
         """
         Initialize Command Service
@@ -51,6 +59,10 @@ class CommandService(LoggerMixin):
             image_service: Image generation service instance (optional)
             crypto_service: Cryptocurrency service instance (optional)
             stock_service: Stock service instance (optional)
+            rag_service: RAG service instance (optional)
+            multi_llm_service: Multi-LLM service instance (optional)
+            crypto_advanced_service: Advanced crypto analysis service instance (optional)
+            playwright_service: Playwright crawler service instance (optional)
         """
         self.event_service = event_service
         self.youtube_service = youtube_service
@@ -61,6 +73,10 @@ class CommandService(LoggerMixin):
         self.image_service = image_service
         self.crypto_service = crypto_service
         self.stock_service = stock_service
+        self.rag_service = rag_service
+        self.multi_llm_service = multi_llm_service
+        self.crypto_advanced_service = crypto_advanced_service
+        self.playwright_service = playwright_service
 
     async def process_command(self, chat) -> Optional[str]:
         """
@@ -201,6 +217,30 @@ class CommandService(LoggerMixin):
                     if self.tts_service and param:
                         return await self._handle_tts(chat, param)
                     return "💡 사용법: !tts 안녕하세요"
+
+                # RAG 검색
+                case "!rag" | "!검색":
+                    if self.rag_service and param:
+                        return await self._handle_rag_query(param)
+                    return "💡 사용법: !rag 최신 AI 트렌드"
+
+                # Multi-LLM 질문
+                case "!llm" | "!gpt":
+                    if self.multi_llm_service and param:
+                        return await self._handle_multi_llm_query(param)
+                    return "💡 사용법: !llm 파이썬으로 피보나치 수열 생성하는 법"
+
+                # 고급 코인 분석
+                case "!코인분석":
+                    if self.crypto_advanced_service and param:
+                        return await self._handle_crypto_analysis(param)
+                    return "💡 사용법: !코인분석 bitcoin"
+
+                # 웹페이지 크롤링
+                case "!크롤":
+                    if self.playwright_service and param:
+                        return await self._handle_web_crawl(param)
+                    return "💡 사용법: !크롤 https://example.com"
 
                 # 기본 응답 없음 (일반 대화는 처리하지 않음)
                 case _:
@@ -895,3 +935,51 @@ class CommandService(LoggerMixin):
 
         except Exception as e:
             return f"❌ TTS 생성 실패: {str(e)}"
+
+    async def _handle_rag_query(self, query: str) -> str:
+        """RAG 검색 기반 질문 응답"""
+        try:
+            self.logger.info("rag_query_request", query=query[:50])
+            response = await self.rag_service.answer_with_rag(query, self.ai_service)
+            return f"🔍 RAG 검색 결과:\n\n{response}"
+
+        except Exception as e:
+            self.logger.error("rag_query_failed", error=str(e))
+            return f"❌ RAG 검색 실패: {str(e)}"
+
+    async def _handle_multi_llm_query(self, query: str) -> str:
+        """Multi-LLM 질문 처리"""
+        try:
+            self.logger.info("multi_llm_query_request", query=query[:50])
+            response = await self.multi_llm_service.generate_with_fallback(query)
+            return f"🤖 AI 응답:\n\n{response}"
+
+        except Exception as e:
+            self.logger.error("multi_llm_query_failed", error=str(e))
+            return f"❌ AI 응답 실패: {str(e)}"
+
+    async def _handle_crypto_analysis(self, coin_id: str) -> str:
+        """고급 암호화폐 분석 (기술 지표)"""
+        try:
+            self.logger.info("crypto_analysis_request", coin_id=coin_id)
+            report = await self.crypto_advanced_service.get_advanced_analysis(coin_id.lower())
+            return report
+
+        except Exception as e:
+            self.logger.error("crypto_analysis_failed", error=str(e))
+            return f"❌ 암호화폐 분석 실패: {str(e)}"
+
+    async def _handle_web_crawl(self, url: str) -> str:
+        """웹페이지 크롤링"""
+        try:
+            self.logger.info("web_crawl_request", url=url[:100])
+            content = await self.playwright_service.fetch_page_multi_strategy(url, max_chars=2000)
+
+            if content:
+                return f"🌐 웹페이지 내용:\n\n{content[:1500]}\n\n... (총 {len(content)}자)"
+            else:
+                return "❌ 웹페이지를 크롤링할 수 없습니다."
+
+        except Exception as e:
+            self.logger.error("web_crawl_failed", error=str(e))
+            return f"❌ 웹 크롤링 실패: {str(e)}"

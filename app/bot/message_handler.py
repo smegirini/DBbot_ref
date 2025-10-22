@@ -18,6 +18,10 @@ from app.services.tts_service import TTSService
 from app.services.image_service import ImageService
 from app.services.crypto_service import CryptoService
 from app.services.stock_service import StockService
+from app.services.rag_service import RAGService
+from app.services.multi_llm_service import MultiLLMService
+from app.services.crypto_advanced_service import CryptoAdvancedService
+from app.services.playwright_crawler_service import PlaywrightCrawlerService
 from app.repositories import EventRepository
 from app.utils import db_manager
 
@@ -54,6 +58,10 @@ class KakaoBotHandler(LoggerMixin):
         self.image_service: Optional[ImageService] = None
         self.crypto_service: Optional[CryptoService] = None
         self.stock_service: Optional[StockService] = None
+        self.rag_service: Optional[RAGService] = None
+        self.multi_llm_service: Optional[MultiLLMService] = None
+        self.crypto_advanced_service: Optional[CryptoAdvancedService] = None
+        self.playwright_service: Optional[PlaywrightCrawlerService] = None
 
         # 공유 이벤트 루프 설정 (핸들러 등록 전에 먼저 실행)
         self._setup_event_loop()
@@ -154,12 +162,18 @@ class KakaoBotHandler(LoggerMixin):
                 event_service=self.event_service
             )
 
-            # 새로운 서비스들 초기화
+            # 새로운 서비스들 초기화 (corinibot features)
             self.pdf_service = PDFService()
             self.tts_service = TTSService()
             self.image_service = ImageService()
             self.crypto_service = CryptoService()
             self.stock_service = StockService()
+
+            # ragbot 서비스들 초기화
+            self.rag_service = RAGService()
+            self.multi_llm_service = MultiLLMService()
+            self.crypto_advanced_service = CryptoAdvancedService()
+            self.playwright_service = PlaywrightCrawlerService()
 
             # CommandService 초기화 (모든 서비스 포함)
             self.command_service = CommandService(
@@ -171,7 +185,11 @@ class KakaoBotHandler(LoggerMixin):
                 tts_service=self.tts_service,
                 image_service=self.image_service,
                 crypto_service=self.crypto_service,
-                stock_service=self.stock_service
+                stock_service=self.stock_service,
+                rag_service=self.rag_service,
+                multi_llm_service=self.multi_llm_service,
+                crypto_advanced_service=self.crypto_advanced_service,
+                playwright_service=self.playwright_service
             )
 
             self.logger.info("bot_services_initialized")
